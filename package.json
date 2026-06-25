@@ -1,0 +1,12 @@
+{
+  "name": "api-tiktok-extract",
+  "version": "1.0.0",
+  "description": "Extract data from TikTok JSON exports",
+  "main": "api/extract.js",
+  "scripts": {
+    "start": "vercel dev"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT"
+}
