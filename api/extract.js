@@ -1,4 +1,4 @@
-// Get a nested value using a configurable separator
+// api/extract.js
 function getValue(obj, path, separator = '.') {
   const keys = path.split(separator);
   let current = obj;
@@ -9,28 +9,20 @@ function getValue(obj, path, separator = '.') {
   return current;
 }
 
-// Handles * wildcards in the path (e.g., "items.*.name")
 function extractWildcard(obj, path, separator) {
   const parts = path.split(separator);
   const starIndex = parts.indexOf('*');
   if (starIndex === -1) {
-    // Simple path
     return getValue(obj, path, separator);
   }
-
-  // Build prefix path leading to the array
   const prefix = parts.slice(0, starIndex).join(separator);
-  // Suffix path to apply to each element
   const suffix = parts.slice(starIndex + 1).join(separator);
-
   const array = getValue(obj, prefix, separator);
   if (!Array.isArray(array)) return undefined;
-
   return array.map(item => getValue(item, suffix, separator));
 }
 
 export default async function handler(req, res) {
-  // CORS – allow requests from any origin
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -45,20 +37,27 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { data, paths, separator } = req.body;
+    let { data, paths, separator } = req.body;
 
-    // Validate input
-    if (!data || !Array.isArray(paths) || paths.length === 0) {
-      return res.status(400).json({
-        error: 'Request body must contain "data" (object) and "paths" (array of strings). Optional: "separator"'
-      });
+    // If data is a string, parse it server‑side
+    if (typeof data === 'string') {
+      try {
+        data = JSON.parse(data);
+      } catch (parseError) {
+        return res.status(400).json({ error: 'Invalid JSON string in data field', details: parseError.message });
+      }
     }
 
-    const sep = separator || '.'; // default to dot notation
+    if (!data || typeof data !== 'object') {
+      return res.status(400).json({ error: 'Invalid "data". Must be a parsed JSON object or a valid JSON string.' });
+    }
+    if (!Array.isArray(paths) || paths.length === 0) {
+      return res.status(400).json({ error: 'Request body must contain "data" (object or string) and "paths" (array of strings). Optional: "separator"' });
+    }
 
+    const sep = separator || '.';
     const result = {};
     for (const path of paths) {
-      // Create a safe display key: replace ".*" with "[*]" for clarity
       const safeKey = path.replace(new RegExp(`\\${sep}\\*`, 'g'), '[*]');
       result[safeKey] = extractWildcard(data, path, sep);
     }
